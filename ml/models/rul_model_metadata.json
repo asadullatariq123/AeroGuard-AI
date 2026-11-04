@@ -1,0 +1,31 @@
+{
+  "target": "rul",
+  "model_type": "RandomForestRegressor",
+  "model_path": "C:\\Users\\mouni\\Desktop\\Aerogaurd\\ml\\models\\rul_model.joblib",
+  "metrics": {
+    "mae": 11.080783151824708,
+    "rmse": 15.970570237503878,
+    "r2": 0.8496589318351134
+  },
+  "training_data": "C:\\Users\\mouni\\Desktop\\Aerogaurd\\ml\\data\\processed\\fd001_train_prepared.csv",
+  "feature_columns": [
+    "cycle",
+    "setting_1",
+    "setting_2",
+    "sensor_2",
+    "sensor_3",
+    "sensor_4",
+    "sensor_6",
+    "sensor_7",
+    "sensor_8",
+    "sensor_9",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21"
+  ]
+}

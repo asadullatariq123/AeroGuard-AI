@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated model and report artifacts
+ml/models/*.joblib
+ml/models/*.pkl
+ml/reports/*.csv
+
+# Local raw datasets can be large; keep the directory but not the files
+ml/data/raw/*.txt
