@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AeroGuard AI — Aircraft Maintenance Copilot
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.162.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -119,3 +120,9 @@ Open your browser to:
 
 Demonstration and educational project. All maintenance decisions must follow certified manufacturer data and regulatory authority directives (FAA / EASA).
 
+=======
+# AeroGuard AI
+AI-powered Aircraft Predictive Maintenance Platform
+
+BUILD DX HACKATHON 2026 - Team Omega
+>>>>>>> 6b41e88c50856590436f97db2baed6d28b4b477c

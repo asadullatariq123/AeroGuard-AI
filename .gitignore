@@ -2,6 +2,7 @@
 .venv/
 venv/
 env/
+<<<<<<< HEAD
 ENV/
 
 # Secrets & Environment variables
@@ -20,4 +21,27 @@ Thumbs.db
 Desktop.ini
 .vscode/
 .idea/
+=======
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+>>>>>>> 6b41e88c50856590436f97db2baed6d28b4b477c
 
