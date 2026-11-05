@@ -1,0 +1,6 @@
+{
+  "name": "AeroGuard AI - Predictive Aircraft Engine Intelligence",
+  "description": "Enterprise-grade aerospace AI predictive maintenance command platform. Predict, Detect, Explain, Prevent with multi-model RUL forecasting, digital twin sandbox, and agent command center.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
