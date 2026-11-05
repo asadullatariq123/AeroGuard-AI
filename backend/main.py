@@ -57,6 +57,19 @@ for mp in MODEL_PATHS:
         except Exception as e:
             print(f"[AeroGuard AI] Warning loading model from {mp}: {e}")
 
+# Supabase Database Client
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SECRET_KEY")
+
+supabase_client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        from supabase import create_client
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("[AeroGuard AI] Connected to Supabase Cloud Database successfully!")
+    except Exception as e:
+        print(f"[AeroGuard AI] Supabase connection warning: {e}")
+
 # In-Memory Fleet State
 FLEET = [
     {
@@ -263,6 +276,7 @@ def health_check():
         "status": "ok",
         "service": "AeroGuard AI Backend",
         "model_loaded": ml_model is not None,
+        "supabase_configured": supabase_client is not None,
         "fleet_count": len(FLEET),
         "alerts_count": len(ALERTS),
     }
@@ -306,7 +320,7 @@ def predict_rul(payload: PredictionRequest):
         recommendation = "Continue normal flight envelope operation. Telemetry within nominal parameters."
         explanation = "All monitored turbofan sensors operating within healthy thresholds."
 
-    return PredictionResponse(
+    resp = PredictionResponse(
         aircraft_id=payload.aircraft_id,
         engine_id=payload.engine_id,
         predicted_rul=rul,
@@ -315,6 +329,23 @@ def predict_rul(payload: PredictionRequest):
         recommendation=recommendation,
         explanation=explanation,
     )
+
+    # Persist prediction to Supabase if connected
+    if supabase_client:
+        try:
+            supabase_client.table("predictions").insert({
+                "aircraft_id": payload.aircraft_id,
+                "engine_id": payload.engine_id,
+                "predicted_rul": float(rul),
+                "health_score": int(health_score),
+                "risk_category": risk_category,
+                "recommendation": recommendation,
+                "explanation": explanation,
+            }).execute()
+        except Exception as e:
+            print(f"[AeroGuard AI] Supabase prediction log warning: {e}")
+
+    return resp
 
 
 @app.get("/api/alerts", tags=["Alerts"])
@@ -359,10 +390,49 @@ def simulate_sensor_update(payload: SensorSimulationRequest):
         target["risk_category"] = "LOW"
         target["status"] = "OPERATIONAL"
 
+    # Persist updated sensor readings to Supabase if connected
+    if supabase_client:
+        try:
+            supabase_client.table("sensor_readings").insert({
+                "aircraft_id": target["aircraft_id"],
+                "engine_id": target["engine_id"],
+                "temperature": float(target["sensor_values"]["temperature"]),
+                "vibration": float(target["sensor_values"]["vibration"]),
+                "pressure": float(target["sensor_values"]["pressure"]),
+                "predicted_rul": float(new_rul),
+                "health_score": int(target["health_score"]),
+            }).execute()
+        except Exception as e:
+            print(f"[AeroGuard AI] Supabase sensor log warning: {e}")
+
     return {
         "message": f"Sensor update simulated for {target['aircraft_id']} / {target['engine_id']}",
         "updated_state": target,
     }
+
+
+@app.get("/api/predictions", tags=["Database"])
+def get_persisted_predictions(limit: int = 50):
+    """Fetches logged predictions from Supabase cloud database."""
+    if supabase_client:
+        try:
+            res = supabase_client.table("predictions").select("*").order("id", desc=True).limit(limit).execute()
+            return res.data or []
+        except Exception as e:
+            print(f"[AeroGuard AI] Supabase fetch error: {e}")
+    return []
+
+
+@app.get("/api/sensors", tags=["Database"])
+def get_persisted_sensors(limit: int = 50):
+    """Fetches logged sensor readings from Supabase cloud database."""
+    if supabase_client:
+        try:
+            res = supabase_client.table("sensor_readings").select("*").order("id", desc=True).limit(limit).execute()
+            return res.data or []
+        except Exception as e:
+            print(f"[AeroGuard AI] Supabase fetch error: {e}")
+    return []
 
 
 if __name__ == "__main__":
