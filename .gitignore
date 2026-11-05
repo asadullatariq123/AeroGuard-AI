@@ -2,6 +2,26 @@
 .venv/
 venv/
 env/
+<<<<<<< HEAD
+ENV/
+
+# Secrets & Environment variables
+.env
+*.env.local
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Operating System & Editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+=======
 
 # Python
 __pycache__/
@@ -23,4 +43,5 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+>>>>>>> 6b41e88c50856590436f97db2baed6d28b4b477c
 

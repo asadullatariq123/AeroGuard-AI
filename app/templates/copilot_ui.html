@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroGuard AI — Aircraft Maintenance Copilot</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#05080e',
+                        surface: '#0b121e',
+                        'surface-panel': '#101a2b',
+                        'surface-card': '#142137',
+                        cyan: {
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            glow: '#00e5ff',
+                        },
+                        emerald: {
+                            glow: '#00f5a0',
+                        },
+                        amber: {
+                            glow: '#f59e0b',
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.4);
+            --glow-emerald: 0 0 20px rgba(0, 245, 160, 0.35);
+            --glow-amber: 0 0 20px rgba(245, 158, 11, 0.35);
+        }
+
+        body {
+            background-color: #05080e;
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 229, 255, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
+                linear-gradient(rgba(0, 229, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            min-height: 100vh;
+        }
+
+        /* Tactical corner brackets */
+        .hud-corner-brackets {
+            position: relative;
+        }
+        .hud-corner-brackets::before,
+        .hud-corner-brackets::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-color: rgba(0, 229, 255, 0.4);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+        .hud-corner-brackets::before {
+            top: -1px;
+            left: -1px;
+            border-top: 2px solid;
+            border-left: 2px solid;
+        }
+        .hud-corner-brackets::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 2px solid;
+            border-right: 2px solid;
+        }
+
+        .hud-panel {
+            background: linear-gradient(135deg, rgba(16, 26, 43, 0.85) 0%, rgba(11, 18, 30, 0.95) 100%);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(0, 229, 255, 0.03);
+            backdrop-filter: blur(12px);
+        }
+
+        .hud-panel-glow {
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.15), inset 0 0 15px rgba(0, 229, 255, 0.05);
+        }
+
+        /* Pulse radar animation */
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-radar {
+            animation: radar-sweep 2.5s linear infinite;
+        }
+
+        @keyframes scan-line {
+            0% { transform: translateY(-100%); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(1000%); opacity: 0; }
+        }
+        .animate-scan {
+            animation: scan-line 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 4px #00e5ff); }
+            50% { opacity: 1; filter: drop-shadow(0 0 12px #00e5ff); }
+        }
+        .animate-pulse-glow {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(11, 18, 30, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 229, 255, 0.25);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 229, 255, 0.5);
+        }
+
+        /* Markdown output formatting in responses */
+        .markdown-body {
+            color: #e2e8f0;
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            color: #00e5ff;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+        .markdown-body h1 { font-size: 1.35rem; border-bottom: 1px solid rgba(0,229,255,0.2); padding-bottom: 0.3rem; }
+        .markdown-body h2 { font-size: 1.15rem; }
+        .markdown-body h3 { font-size: 1.05rem; }
+        .markdown-body p { margin-bottom: 0.75rem; }
+        .markdown-body ul, .markdown-body ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+        .markdown-body ul { list-style-type: square; }
+        .markdown-body ol { list-style-type: decimal; }
+        .markdown-body li { margin-bottom: 0.35rem; }
+        .markdown-body strong { color: #f8fafc; font-weight: 700; }
+        .markdown-body code {
+            background: rgba(0, 229, 255, 0.1);
+            color: #00e5ff;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+        .markdown-body pre {
+            background: #080d16;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+            border: none;
+            color: #a5f3fc;
+        }
+        .markdown-body blockquote {
+            border-left: 3px solid #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+            padding: 0.5rem 1rem;
+            margin: 0.75rem 0;
+            border-radius: 0 4px 4px 0;
+            font-style: italic;
+        }
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+            font-size: 0.9em;
+        }
+        .markdown-body th, .markdown-body td {
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+        .markdown-body th {
+            background: rgba(0, 229, 255, 0.12);
+            color: #00e5ff;
+            font-family: 'Rajdhani', sans-serif;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-200 selection:bg-cyan-500 selection:text-black">
+
+    <!-- TOP SAFETY DISCLAIMER STRIP (Prominently Fixed) -->
+    <div class="w-full bg-gradient-to-r from-amber-950/80 via-amber-900/60 to-amber-950/80 border-b border-amber-500/40 text-amber-200 px-4 py-2 text-xs md:text-sm font-rajdhani tracking-wide flex items-center justify-between backdrop-blur-md sticky top-0 z-50">
+        <div class="flex items-center space-x-2.5 mx-auto">
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/50 animate-pulse">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </span>
+            <span class="font-bold uppercase tracking-wider text-amber-300">SAFETY MANDATE:</span>
+            <span class="text-amber-100/90 font-medium">Demonstration only. Actual aircraft maintenance decisions must be made by authorized aviation maintenance professionals.</span>
+        </div>
+        <div class="hidden lg:flex items-center space-x-2 text-[10px] text-amber-400/80 font-mono">
+            <span>REG: FAA 14 CFR § 43 / EASA PART-M</span>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER: AEROGUARD AI BRANDING & AVIONICS HUD -->
+    <header class="hud-panel border-b border-cyan-500/20 px-4 lg:px-8 py-3.5 sticky top-8 z-40">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Left: Brand Logo & Title -->
+            <div class="flex items-center space-x-3.5">
+                <div class="relative w-11 h-11 rounded-lg bg-surface-card border border-cyan-500/40 flex items-center justify-center p-2 shadow-[0_0_15px_rgba(0,229,255,0.25)]">
+                    <!-- Delta Jet Hologram SVG -->
+                    <svg class="w-7 h-7 text-cyan-glow" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L4 18l8-3 8 3L12 2zm0 4.5l4.5 9-4.5-1.7-4.5 1.7L12 6.5z"/>
+                        <circle cx="12" cy="11" r="1.5" class="text-emerald-glow fill-current" />
+                    </svg>
+                    <!-- Corner reticle markers -->
+                    <span class="absolute -top-0.5 -left-0.5 w-1.5 h-1.5 border-t border-l border-cyan-400"></span>
+                    <span class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 border-t border-r border-cyan-400"></span>
+                    <span class="absolute -bottom-0.5 -left-0.5 w-1.5 h-1.5 border-b border-l border-cyan-400"></span>
+                    <span class="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 border-b border-r border-cyan-400"></span>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-xl md:text-2xl font-orbitron font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-cyan-200 to-white">
+                            AEROGUARD<span class="text-cyan-400">.AI</span>
+                        </h1>
+                        <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded">
+                            COPILOT v2.4
+                        </span>
+                    </div>
+                    <p class="text-xs font-rajdhani text-slate-400 tracking-wider uppercase font-semibold">
+                        AIRCRAFT MAINTENANCE &amp; TECHNICAL SYSTEMS COPILOT
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right: Telemetry & Live HUD Status -->
+            <div class="flex items-center space-x-3 text-xs font-mono">
+                <!-- Status Pips -->
+                <div class="hidden sm:flex items-center space-x-4 bg-surface px-3 py-1.5 rounded border border-slate-800">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981] animate-pulse"></span>
+                        <span class="text-slate-300">AVIONICS:</span>
+                        <span class="text-emerald-400 font-bold">ONLINE</span>
+                    </div>
+                    <div class="hidden md:flex items-center space-x-1.5 border-l border-slate-800 pl-4">
+                        <span class="text-slate-400">RAG DOCS:</span>
+                        <span class="text-cyan-400 font-semibold" id="rag-status-badge">ACTIVE</span>
+                    </div>
+                    <div class="hidden lg:flex items-center space-x-1.5 border-l border-slate-800 pl-4">
+                        <span class="text-slate-400">LLM:</span>
+                        <span class="text-slate-200 font-semibold">GEMINI 3.8</span>
+                    </div>
+                    <div class="hidden xl:flex items-center space-x-1.5 border-l border-slate-800 pl-4 text-cyan-300" id="utc-clock">
+                        00:00:00 UTC
+                    </div>
+                </div>
+
+                <!-- Action Controls: Audio Toggle & Clear Chat -->
+                <button id="btn-sound-toggle" title="Toggle Cockpit Audio Effects" class="p-2 rounded bg-surface hover:bg-surface-card border border-slate-700 hover:border-cyan-500/50 text-slate-400 hover:text-cyan-400 transition">
+                    <svg class="w-4 h-4" id="sound-icon-on" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                </button>
+
+                <button id="btn-clear-chat" title="Clear Maintenance Transcript" class="flex items-center space-x-1 px-3 py-1.5 rounded bg-surface hover:bg-red-950/40 border border-slate-700 hover:border-red-500/50 text-slate-400 hover:text-red-400 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span class="hidden sm:inline">RESET</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN COCKPIT VIEWPORT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
+        
+        <!-- LEFT COLUMN: AIRCRAFT TELEMETRY, ATA DIRECTORY & QUICK DISPATCH (4 COLS) -->
+        <aside class="lg:col-span-4 flex flex-col space-y-4">
+            
+            <!-- Airframe & System Status Card -->
+            <div class="hud-panel hud-corner-brackets rounded-lg p-4">
+                <div class="flex items-center justify-between pb-3 border-b border-cyan-500/20">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
+                        <h2 class="font-rajdhani font-bold text-sm tracking-wider uppercase text-cyan-300">AVIONICS TELEMETRY</h2>
+                    </div>
+                    <span class="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
+                        SECURE HUD
+                    </span>
+                </div>
+
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div class="bg-surface/80 p-2.5 rounded border border-slate-800">
+                        <div class="text-slate-400 text-[10px] uppercase">RAG Vector Store</div>
+                        <div class="text-cyan-300 font-semibold mt-0.5">ChromaDB</div>
+                    </div>
+                    <div class="bg-surface/80 p-2.5 rounded border border-slate-800">
+                        <div class="text-slate-400 text-[10px] uppercase">Model Core</div>
+                        <div class="text-cyan-300 font-semibold mt-0.5">Gemini 3.8 Flash</div>
+                    </div>
+                    <div class="bg-surface/80 p-2.5 rounded border border-slate-800">
+                        <div class="text-slate-400 text-[10px] uppercase">Knowledge Domain</div>
+                        <div class="text-slate-200 font-semibold mt-0.5">Aircraft Maint.</div>
+                    </div>
+                    <div class="bg-surface/80 p-2.5 rounded border border-slate-800">
+                        <div class="text-slate-400 text-[10px] uppercase">Endpoint Target</div>
+                        <div class="text-emerald-400 font-semibold mt-0.5">/copilot/ask</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Dispatch Queries (ATA Chapters) -->
+            <div class="hud-panel hud-corner-brackets rounded-lg p-4 flex-1 flex flex-col">
+                <div class="flex items-center justify-between pb-3 border-b border-cyan-500/20">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <h2 class="font-rajdhani font-bold text-sm tracking-wider uppercase text-cyan-300">QUICK DISPATCH PROMPTS</h2>
+                    </div>
+                    <span class="text-[10px] font-mono text-slate-400">CLICK TO LOAD</span>
+                </div>
+
+                <p class="text-xs text-slate-400 font-sans my-2.5">
+                    Click standard maintenance inquiries to test copilot retrieval &amp; Gemini responses:
+                </p>
+
+                <div class="space-y-2 flex-1 overflow-y-auto pr-1" id="quick-queries-list">
+                    
+                    <button class="quick-prompt-btn w-full text-left p-2.5 rounded bg-surface/70 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/50 transition group" data-prompt="What are the inspection procedures and limit tolerances for the landing gear brake wear pins?">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400">
+                            <span>ATA 32 &bull; LANDING GEAR</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition">&rarr;</span>
+                        </div>
+                        <div class="text-xs text-slate-300 mt-1 font-sans group-hover:text-cyan-200">
+                            Brake wear pin inspection limits &amp; turnaround tolerance.
+                        </div>
+                    </button>
+
+                    <button class="quick-prompt-btn w-full text-left p-2.5 rounded bg-surface/70 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/50 transition group" data-prompt="Troubleshoot a hydraulic system B low pressure warning on approach. What are the AMM checklist steps?">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400">
+                            <span>ATA 29 &bull; HYDRAULICS</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition">&rarr;</span>
+                        </div>
+                        <div class="text-xs text-slate-300 mt-1 font-sans group-hover:text-cyan-200">
+                            Hydraulic System B pressure drop troubleshooting checklist.
+                        </div>
+                    </button>
+
+                    <button class="quick-prompt-btn w-full text-left p-2.5 rounded bg-surface/70 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/50 transition group" data-prompt="What causes an APU auto-shutdown on the ground and what is the fault isolation procedure?">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400">
+                            <span>ATA 49 &bull; APU SYSTEM</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition">&rarr;</span>
+                        </div>
+                        <div class="text-xs text-slate-300 mt-1 font-sans group-hover:text-cyan-200">
+                            APU ground auto-shutdown fault isolation &amp; EGT limits.
+                        </div>
+                    </button>
+
+                    <button class="quick-prompt-btn w-full text-left p-2.5 rounded bg-surface/70 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/50 transition group" data-prompt="CFM56 turbofan engine high EGT margin deterioration inspection protocols.">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400">
+                            <span>ATA 71 &bull; POWER PLANT</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition">&rarr;</span>
+                        </div>
+                        <div class="text-xs text-slate-300 mt-1 font-sans group-hover:text-cyan-200">
+                            Engine high EGT margin deterioration diagnostic steps.
+                        </div>
+                    </button>
+
+                    <button class="quick-prompt-btn w-full text-left p-2.5 rounded bg-surface/70 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/50 transition group" data-prompt="What maintenance documents and manuals are currently indexed in AeroGuard?">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400">
+                            <span>RAG &bull; VECTOR INVENTORY</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition">&rarr;</span>
+                        </div>
+                        <div class="text-xs text-slate-300 mt-1 font-sans group-hover:text-cyan-200">
+                            Query indexed aircraft manuals and maintenance documents.
+                        </div>
+                    </button>
+
+                </div>
+
+                <!-- Session Stats / Export Footer -->
+                <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                    <span id="session-counter">QUERIES: 0</span>
+                    <button id="btn-export-log" class="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition">
+                        Export Session Log
+                    </button>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- RIGHT COLUMN: COPILOT CONVERSATION VIEWPORT & COMMAND INPUT (8 COLS) -->
+        <section class="lg:col-span-8 flex flex-col h-[78vh] lg:h-[82vh] hud-panel hud-corner-brackets rounded-lg overflow-hidden relative">
+            
+            <!-- Chat Window Header -->
+            <div class="px-5 py-3 border-b border-cyan-500/20 bg-surface/90 flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></div>
+                    <span class="font-rajdhani font-bold text-sm tracking-wider uppercase text-slate-200">
+                        AEROGUARD COPILOT // ACTIVE CHANNEL
+                    </span>
+                </div>
+                <div class="flex items-center space-x-3 text-xs font-mono text-slate-400">
+                    <span class="hidden sm:inline">SECURITY: TLS ENCRYPTED</span>
+                    <span class="text-cyan-400 font-semibold" id="connection-status">READY</span>
+                </div>
+            </div>
+
+            <!-- Chat Messages Container -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+                
+                <!-- Initial Welcome Directive Card -->
+                <div id="welcome-card" class="bg-surface-card/60 border border-cyan-500/30 rounded-lg p-5 md:p-6 backdrop-blur shadow-lg">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-cyan-500/20">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-orbitron font-bold text-base text-cyan-300">AEROGUARD AI COPILOT READY</h3>
+                                <p class="text-xs text-slate-400 font-sans">Aviation Maintenance Technical Assistant &bull; Powered by Gemini 3.8 &amp; RAG</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs">
+                            STANDBY FOR DIRECTIVES
+                        </span>
+                    </div>
+
+                    <div class="mt-4 text-xs md:text-sm text-slate-300 space-y-2.5 leading-relaxed font-sans">
+                        <p>
+                            Welcome to the <strong class="text-cyan-300">AeroGuard AI Maintenance Copilot</strong> cockpit interface. This system is engineered to assist certified aircraft maintenance technicians, avionics engineers, and ground crews in rapidly retrieving:
+                        </p>
+                        <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 my-3 font-mono text-xs text-slate-300">
+                            <li class="flex items-center space-x-2 bg-surface/60 p-2 rounded border border-slate-800">
+                                <span class="text-cyan-400">&bull;</span>
+                                <span>Aircraft Maintenance Manuals (AMM)</span>
+                            </li>
+                            <li class="flex items-center space-x-2 bg-surface/60 p-2 rounded border border-slate-800">
+                                <span class="text-cyan-400">&bull;</span>
+                                <span>Fault Isolation Manuals (FIM)</span>
+                            </li>
+                            <li class="flex items-center space-x-2 bg-surface/60 p-2 rounded border border-slate-800">
+                                <span class="text-cyan-400">&bull;</span>
+                                <span>Component Maintenance Manuals (CMM)</span>
+                            </li>
+                            <li class="flex items-center space-x-2 bg-surface/60 p-2 rounded border border-slate-800">
+                                <span class="text-cyan-400">&bull;</span>
+                                <span>Torque Specs &amp; Wear Limits</span>
+                            </li>
+                        </ul>
+                        <div class="p-3 rounded bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono flex items-start space-x-2">
+                            <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <span>REMINDER: Responses reference stored technical manuals. Always cross-examine physical logbooks and manufacturer service bulletins before releasing aircraft to service.</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Loading Telemetry Indicator (Hidden by default) -->
+            <div id="loading-indicator" class="hidden px-6 py-4 bg-surface-card/90 border-t border-cyan-500/20">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center space-x-3">
+                        <!-- Rotating Radar Scanner Graphic -->
+                        <div class="relative w-7 h-7 rounded-full border border-cyan-500/40 flex items-center justify-center overflow-hidden">
+                            <div class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff]"></div>
+                            <div class="absolute inset-0 border-t-2 border-cyan-400 rounded-full animate-radar"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-orbitron font-bold text-cyan-300" id="loading-status-text">
+                                SCANNING TECHNICAL MANUALS &amp; RAG REPOSITORY...
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-400">
+                                RETRIEVING EMBEDDINGS &bull; GEMINI 3.8 INFERENCE
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono text-cyan-400 animate-pulse" id="loading-timer">0.0s</span>
+                </div>
+                <!-- Scanning progress bar -->
+                <div class="w-full h-1 bg-surface rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-cyan-400 rounded-full w-2/3 animate-pulse"></div>
+                </div>
+            </div>
+
+            <!-- COMMAND INPUT DECK (HUD MCDU STYLE) -->
+            <div class="p-3 md:p-4 bg-surface border-t border-cyan-500/20">
+                <form id="copilot-form" class="space-y-2">
+                    <div class="relative flex items-center rounded-lg bg-surface-card border border-cyan-500/30 focus-within:border-cyan-400 focus-within:shadow-[0_0_15px_rgba(0,229,255,0.25)] transition">
+                        
+                        <!-- Terminal Prompt Icon -->
+                        <div class="pl-3.5 pr-2 py-3 text-cyan-400 flex items-center select-none font-mono text-sm">
+                            <span class="text-slate-500 text-xs hidden sm:inline mr-1">SYS&gt;</span>
+                            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3" />
+                            </svg>
+                        </div>
+
+                        <!-- Main Question Input -->
+                        <textarea 
+                            id="question-input" 
+                            rows="1"
+                            placeholder="Ask AeroGuard AI... (e.g., APU auto-shutdown diagnostic steps or brake wear limits)"
+                            class="w-full bg-transparent text-slate-100 placeholder-slate-500 text-sm md:text-base py-3 px-1 focus:outline-none resize-none font-sans max-h-32 leading-relaxed"
+                            required
+                        ></textarea>
+
+                        <!-- Action Buttons -->
+                        <div class="flex items-center space-x-2 pr-2.5">
+                            
+                            <!-- Voice input button placeholder / clear input -->
+                            <button 
+                                type="button" 
+                                id="btn-clear-input" 
+                                title="Clear Input" 
+                                class="hidden p-1.5 text-slate-400 hover:text-slate-200 transition"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+
+                            <!-- Primary Ask Button -->
+                            <button 
+                                type="submit" 
+                                id="btn-ask" 
+                                class="relative group px-4 py-2 rounded bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-black font-rajdhani font-bold text-sm uppercase tracking-wider flex items-center space-x-1.5 shadow-[0_0_12px_rgba(0,229,255,0.35)] hover:shadow-[0_0_20px_rgba(0,229,255,0.6)] active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                <span>TRANSMIT</span>
+                                <svg class="w-4 h-4 transform group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Input Footer Shortcuts & Disclaimer Reminder -->
+                    <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+                        <div class="flex items-center space-x-2">
+                            <span><kbd class="px-1 py-0.5 rounded bg-surface-card border border-slate-700 text-slate-300">Enter</kbd> to Transmit</span>
+                            <span class="text-slate-600">&bull;</span>
+                            <span><kbd class="px-1 py-0.5 rounded bg-surface-card border border-slate-700 text-slate-300">Shift+Enter</kbd> newline</span>
+                        </div>
+                        <div class="hidden sm:block text-slate-400">
+                            AEROGUARD INTELLIGENCE CORE
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-800/80 bg-surface/70 px-4 py-3 text-center text-xs font-mono text-slate-400">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+                &copy; 2026 AeroGuard AI Systems &bull; Aircraft Maintenance Operational Intelligence
+            </div>
+            <div class="text-amber-400/90 font-rajdhani text-xs tracking-wider">
+                SAFETY MANDATE: AUTHORIZED AVIATION PERSONNEL ONLY
+            </div>
+        </div>
+    </footer>
+
+    <!-- CLIENT SCRIPT: ENGINE LOGIC & COPILOT API CONNECTION -->
+    <script>
+        // DOM Elements
+        const form = document.getElementById('copilot-form');
+        const questionInput = document.getElementById('question-input');
+        const btnAsk = document.getElementById('btn-ask');
+        const btnClearInput = document.getElementById('btn-clear-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const welcomeCard = document.getElementById('welcome-card');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const loadingStatusText = document.getElementById('loading-status-text');
+        const loadingTimer = document.getElementById('loading-timer');
+        const btnClearChat = document.getElementById('btn-clear-chat');
+        const btnExportLog = document.getElementById('btn-export-log');
+        const btnSoundToggle = document.getElementById('btn-sound-toggle');
+        const sessionCounterEl = document.getElementById('session-counter');
+        const utcClockEl = document.getElementById('utc-clock');
+        const quickPromptBtns = document.querySelectorAll('.quick-prompt-btn');
+
+        // State
+        let queryCount = 0;
+        let isAudioEnabled = true;
+        let conversationTranscript = [];
+        let loadingInterval = null;
+        let loadingStartTime = 0;
+
+        // Web Audio API for Cockpit Sound Effects
+        let audioCtx = null;
+        function playChirp(frequency = 880, duration = 0.08, type = 'sine') {
+            if (!isAudioEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio playback not supported:', e);
+            }
+        }
+
+        // Live UTC Clock
+        function updateClock() {
+            const now = new Date();
+            const utcString = now.toUTCString().split(' ')[4] + ' UTC';
+            if (utcClockEl) {
+                utcClockEl.textContent = utcString;
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Audio toggle button handler
+        btnSoundToggle.addEventListener('click', () => {
+            isAudioEnabled = !isAudioEnabled;
+            btnSoundToggle.classList.toggle('text-cyan-400', isAudioEnabled);
+            btnSoundToggle.classList.toggle('text-slate-600', !isAudioEnabled);
+            if (isAudioEnabled) {
+                playChirp(1200, 0.1);
+            }
+        });
+
+        // Auto-resize textarea
+        questionInput.addEventListener('input', () => {
+            questionInput.style.height = 'auto';
+            questionInput.style.height = Math.min(questionInput.scrollHeight, 128) + 'px';
+            btnClearInput.classList.toggle('hidden', !questionInput.value.trim());
+        });
+
+        // Clear input button
+        btnClearInput.addEventListener('click', () => {
+            questionInput.value = '';
+            questionInput.style.height = 'auto';
+            btnClearInput.classList.add('hidden');
+            questionInput.focus();
+        });
+
+        // Quick Prompt Buttons
+        quickPromptBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prompt = btn.getAttribute('data-prompt');
+                questionInput.value = prompt;
+                questionInput.dispatchEvent(new Event('input'));
+                playChirp(960, 0.05);
+                // Auto transmit prompt
+                submitQuestion(prompt);
+            });
+        });
+
+        // Enter key to submit (Shift+Enter for newline)
+        questionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        });
+
+        // Reset / Clear chat
+        btnClearChat.addEventListener('click', () => {
+            if (conversationTranscript.length === 0) return;
+            if (confirm('Clear active maintenance copilot session?')) {
+                // Clear all except welcome card
+                chatMessages.innerHTML = '';
+                if (welcomeCard) chatMessages.appendChild(welcomeCard);
+                conversationTranscript = [];
+                queryCount = 0;
+                sessionCounterEl.textContent = `QUERIES: ${queryCount}`;
+                playChirp(440, 0.12, 'sawtooth');
+            }
+        });
+
+        // Export session transcript
+        btnExportLog.addEventListener('click', () => {
+            if (conversationTranscript.length === 0) {
+                alert('No maintenance queries logged in current session.');
+                return;
+            }
+            let logMarkdown = `# AeroGuard AI — Aircraft Maintenance Session Log\n`;
+            logMarkdown += `Generated: ${new Date().toUTCString()}\n`;
+            logMarkdown += `Safety Mandate: Demonstration only. Actual aircraft maintenance decisions must be made by authorized aviation maintenance professionals.\n\n`;
+            logMarkdown += `---\n\n`;
+
+            conversationTranscript.forEach((entry, idx) => {
+                logMarkdown += `### Entry ${idx + 1} [${entry.timestamp}]\n\n`;
+                logMarkdown += `**Technician Query:**\n${entry.question}\n\n`;
+                logMarkdown += `**AeroGuard AI Directives:**\n${entry.answer}\n\n`;
+                if (entry.citations && entry.citations.length > 0) {
+                    logMarkdown += `**Source Citations:**\n`;
+                    entry.citations.forEach(c => {
+                        logMarkdown += `- ${typeof c === 'string' ? c : JSON.stringify(c)}\n`;
+                    });
+                    logMarkdown += `\n`;
+                }
+                logMarkdown += `---\n\n`;
+            });
+
+            const blob = new Blob([logMarkdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `AeroGuard-Maintenance-Log-${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Loading animation telemetry steps
+        const telemetrySteps = [
+            'SCANNING TECHNICAL MANUALS & RAG REPOSITORY...',
+            'RETRIEVING ATA SYSTEM CHAPTERS & VECTOR EMBEDDINGS...',
+            'MATCHING FAULT ISOLATION PROCEDURES...',
+            'GEMINI 3.8 FLASH SYNTHESIZING SAFETY CHECKED DIRECTIVE...'
+        ];
+
+        function startLoading() {
+            loadingStartTime = Date.now();
+            loadingIndicator.classList.remove('hidden');
+            btnAsk.disabled = true;
+            let stepIdx = 0;
+            loadingStatusText.textContent = telemetrySteps[0];
+            
+            loadingInterval = setInterval(() => {
+                const elapsed = ((Date.now() - loadingStartTime) / 1000).toFixed(1);
+                loadingTimer.textContent = `${elapsed}s`;
+                
+                // Cycle through telemetry messages every 1.8s
+                if (Math.floor(elapsed / 1.8) !== stepIdx) {
+                    stepIdx = Math.floor(elapsed / 1.8) % telemetrySteps.length;
+                    loadingStatusText.textContent = telemetrySteps[stepIdx];
+                }
+            }, 100);
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function stopLoading() {
+            if (loadingInterval) clearInterval(loadingInterval);
+            loadingIndicator.classList.add('hidden');
+            btnAsk.disabled = false;
+        }
+
+        // Render User Message Card
+        function appendUserMessage(text) {
+            const timeStr = new Date().toTimeString().split(' ')[0];
+            const msgEl = document.createElement('div');
+            msgEl.className = 'flex justify-end';
+            msgEl.innerHTML = `
+                <div class="max-w-[85%] md:max-w-[75%] bg-surface-card border border-cyan-500/40 rounded-lg p-4 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                    <div class="flex items-center justify-between text-[11px] font-mono text-cyan-400 mb-1.5 pb-1 border-b border-cyan-500/20">
+                        <span class="flex items-center space-x-1 font-bold">
+                            <svg class="w-3.5 h-3.5 text-cyan-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span>MAINTENANCE CREW / DISPATCH</span>
+                        </span>
+                        <span class="text-slate-400">${timeStr}</span>
+                    </div>
+                    <div class="text-sm md:text-base text-slate-100 font-sans whitespace-pre-wrap leading-relaxed">
+                        ${escapeHtml(text)}
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(msgEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Render AeroGuard Copilot Response Card
+        function appendCopilotMessage(answerText, citations = [], elapsedSeconds = '1.2') {
+            const timeStr = new Date().toTimeString().split(' ')[0];
+            const msgEl = document.createElement('div');
+            msgEl.className = 'flex justify-start';
+
+            // Markdown parse using marked.js
+            let parsedHtml = '';
+            try {
+                parsedHtml = marked.parse(answerText);
+            } catch (err) {
+                console.error('Markdown parse error:', err);
+                parsedHtml = `<p>${escapeHtml(answerText)}</p>`;
+            }
+
+            // Citations processing
+            let citationsHtml = '';
+            
+            // Check if citations were provided directly in API response
+            const hasApiCitations = Array.isArray(citations) && citations.length > 0;
+            
+            // Also inspect answer text for inline citations (e.g. "Source: ...", "Page: ...")
+            const inlineCitationMatches = extractInlineCitations(answerText);
+            
+            if (hasApiCitations) {
+                citationsHtml = renderCitationsList(citations);
+            } else if (inlineCitationMatches.length > 0) {
+                citationsHtml = renderInlineCitationsList(inlineCitationMatches);
+            }
+
+            msgEl.innerHTML = `
+                <div class="max-w-[92%] md:max-w-[85%] bg-surface-panel/90 border border-cyan-500/30 rounded-lg p-5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hud-corner-brackets">
+                    
+                    <!-- Card Top Header -->
+                    <div class="flex items-center justify-between pb-3 mb-3 border-b border-cyan-500/20 text-xs font-mono">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2L4 18l8-3 8 3L12 2zm0 4.5l4.5 9-4.5-1.7-4.5 1.7L12 6.5z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <span class="font-orbitron font-bold text-cyan-300 tracking-wider">AEROGUARD AI</span>
+                                <span class="text-slate-400 text-[10px] ml-1">&bull; COPILOT RESPONSE</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 text-[10px]">
+                            <span class="px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-500/30 font-semibold">
+                                LATENCY: ${elapsedSeconds}s
+                            </span>
+                            <span class="text-slate-400">${timeStr}</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Markdown Answer -->
+                    <div class="markdown-body font-sans text-slate-200">
+                        ${parsedHtml}
+                    </div>
+
+                    <!-- Source Citations Section (If Returned) -->
+                    ${citationsHtml}
+
+                    <!-- Safety Reminder & Message Action Tools -->
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                        <div class="flex items-center space-x-1.5 text-amber-400/90 text-[11px]">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <span>Verify against official OEM Maintenance Manuals</span>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <button class="btn-copy-answer flex items-center space-x-1 hover:text-cyan-400 transition" title="Copy text to clipboard">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                <span>COPY</span>
+                            </button>
+                            <button class="btn-speak-answer flex items-center space-x-1 hover:text-cyan-400 transition" title="Speak directive via audio">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                                </svg>
+                                <span>AUDIO</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            `;
+
+            // Attach Copy Event
+            const btnCopy = msgEl.querySelector('.btn-copy-answer');
+            btnCopy.addEventListener('click', () => {
+                navigator.clipboard.writeText(answerText).then(() => {
+                    btnCopy.innerHTML = `<span class="text-emerald-400 font-bold">&check; COPIED</span>`;
+                    playChirp(1400, 0.05);
+                    setTimeout(() => {
+                        btnCopy.innerHTML = `
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <span>COPY</span>
+                        `;
+                    }, 2000);
+                });
+            });
+
+            // Attach Speech Synthesizer Event
+            const btnSpeak = msgEl.querySelector('.btn-speak-answer');
+            btnSpeak.addEventListener('click', () => {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const cleanText = answerText.replace(/[#*`_\[\]]/g, '');
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    utterance.rate = 1.05;
+                    utterance.pitch = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                    playChirp(1000, 0.05);
+                }
+            });
+
+            chatMessages.appendChild(msgEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Render Error Card
+        function appendErrorMessage(errMessage) {
+            const msgEl = document.createElement('div');
+            msgEl.className = 'flex justify-start';
+            msgEl.innerHTML = `
+                <div class="max-w-[85%] bg-red-950/40 border border-red-500/50 rounded-lg p-4 shadow-lg">
+                    <div class="flex items-center space-x-2 text-red-400 font-mono text-xs font-bold mb-1.5">
+                        <svg class="w-4 h-4 text-red-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>AVIONICS COMMS ERROR // DISPATCH FAILED</span>
+                    </div>
+                    <p class="text-sm text-red-200 font-sans leading-relaxed">${escapeHtml(errMessage)}</p>
+                    <div class="mt-2 text-[11px] font-mono text-red-300">
+                        Check FastAPI backend endpoint at <code class="bg-red-900/60 px-1 py-0.5 rounded">POST /copilot/ask</code>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(msgEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            playChirp(300, 0.18, 'sawtooth');
+        }
+
+        // Render Citations Block
+        function renderCitationsList(citations) {
+            let items = '';
+            citations.forEach((cite, idx) => {
+                let title = '';
+                let page = '';
+                let text = '';
+
+                if (typeof cite === 'string') {
+                    title = cite;
+                } else if (typeof cite === 'object' && cite !== null) {
+                    title = cite.source || cite.document || cite.title || `Document ${idx + 1}`;
+                    page = cite.page ? `PAGE ${cite.page}` : '';
+                    text = cite.text || cite.snippet || cite.content || '';
+                }
+
+                items += `
+                    <div class="p-2.5 rounded bg-surface/90 border border-cyan-500/20 hover:border-cyan-500/40 transition">
+                        <div class="flex items-center justify-between text-xs font-mono mb-1">
+                            <div class="flex items-center space-x-1.5 text-cyan-300 font-semibold truncate">
+                                <svg class="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <span class="truncate">${escapeHtml(title)}</span>
+                            </div>
+                            ${page ? `<span class="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] border border-cyan-500/30 flex-shrink-0 ml-2">${escapeHtml(page)}</span>` : ''}
+                        </div>
+                        ${text ? `<p class="text-[11px] text-slate-400 font-mono line-clamp-2 mt-1">${escapeHtml(text)}</p>` : ''}
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="mt-4 pt-3 border-t border-cyan-500/20 bg-surface/50 -mx-5 -mb-2 px-5 py-3 rounded-b-lg">
+                    <div class="flex items-center space-x-2 text-xs font-mono text-cyan-300 font-bold mb-2">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                        <span class="tracking-wider uppercase">VERIFIED TECHNICAL CITATIONS</span>
+                        <span class="text-[10px] font-normal text-slate-400">(${citations.length} Verified Sources)</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${items}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper: Extract inline citations from text if API did not provide explicit array
+        function extractInlineCitations(text) {
+            const results = [];
+            // Matches lines like "Source: maintenance_demo.txt, Page: 1" or "Source: ..."
+            const regex = /(?:Source|Document|Reference|Ref)[\s*:]+([^\n\r,]+)(?:,\s*(?:Page|Pg)[\s*:]+([^\n\r]+))?/gi;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                const docName = match[1].trim().replace(/[*_]/g, '');
+                const pageNum = match[2] ? match[2].trim().replace(/[*_]/g, '') : '';
+                if (docName && !results.some(r => r.source === docName && r.page === pageNum)) {
+                    results.push({
+                        source: docName,
+                        page: pageNum
+                    });
+                }
+            }
+            return results;
+        }
+
+        function renderInlineCitationsList(citations) {
+            let items = '';
+            citations.forEach((cite) => {
+                items += `
+                    <div class="flex items-center space-x-1.5 px-2 py-1 rounded bg-surface border border-cyan-500/20 text-xs font-mono">
+                        <svg class="w-3 h-3 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span class="text-cyan-300 font-semibold">${escapeHtml(cite.source)}</span>
+                        ${cite.page ? `<span class="text-[10px] text-slate-400 bg-slate-800 px-1 rounded border border-slate-700">PG ${escapeHtml(cite.page)}</span>` : ''}
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="mt-4 pt-3 border-t border-cyan-500/20 bg-surface/40 -mx-5 -mb-2 px-5 py-2.5 rounded-b-lg">
+                    <div class="text-[11px] font-mono text-cyan-400 uppercase font-bold tracking-wider mb-1.5 flex items-center space-x-1">
+                        <span>REFERENCED OEM DOCUMENTS:</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${items}
+                    </div>
+                </div>
+            `;
+        }
+
+        // HTML Escape Utility
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Core Submission Workflow
+        async function submitQuestion(questionText) {
+            const cleanQuestion = questionText.trim();
+            if (!cleanQuestion) return;
+
+            // Clear input box
+            questionInput.value = '';
+            questionInput.style.height = 'auto';
+            btnClearInput.classList.add('hidden');
+
+            // Sound
+            playChirp(750, 0.08);
+
+            // Hide welcome card if present
+            if (welcomeCard && !welcomeCard.classList.contains('hidden')) {
+                welcomeCard.classList.add('hidden');
+            }
+
+            // Append User Question
+            appendUserMessage(cleanQuestion);
+
+            // Increment query telemetry counter
+            queryCount++;
+            sessionCounterEl.textContent = `QUERIES: ${queryCount}`;
+
+            // Start Radar Loading
+            startLoading();
+
+            const startTime = performance.now();
+
+            try {
+                // Call existing POST /copilot/ask endpoint
+                const response = await fetch('/copilot/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ question: cleanQuestion })
+                });
+
+                const endTime = performance.now();
+                const elapsedSec = ((endTime - startTime) / 1000).toFixed(2);
+
+                if (!response.ok) {
+                    const errorDetail = await response.text();
+                    throw new Error(`Server returned HTTP ${response.status}: ${errorDetail || response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // Stop loading indicator
+                stopLoading();
+
+                // Extract citations if present in backend payload
+                let citations = [];
+                if (data.citations && Array.isArray(data.citations)) {
+                    citations = data.citations;
+                } else if (data.sources && Array.isArray(data.sources)) {
+                    citations = data.sources;
+                } else if (typeof data.citations === 'string') {
+                    citations = [data.citations];
+                } else if (typeof data.sources === 'string') {
+                    citations = [data.sources];
+                }
+
+                const answerText = data.answer || "No response received from AeroGuard AI.";
+
+                // Append copilot message
+                appendCopilotMessage(answerText, citations, elapsedSec);
+
+                // Play completion chime
+                playChirp(1200, 0.06);
+
+                // Save to local session transcript
+                conversationTranscript.push({
+                    question: cleanQuestion,
+                    answer: answerText,
+                    citations: citations,
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (err) {
+                console.error('Copilot dispatch error:', err);
+                stopLoading();
+                appendErrorMessage(err.message || 'Unable to connect to AeroGuard AI copilot endpoint.');
+            } finally {
+                questionInput.focus();
+            }
+        }
+
+        // Form Submit Handler
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitQuestion(questionInput.value);
+        });
+
+        // Autofocus input
+        window.addEventListener('DOMContentLoaded', () => {
+            questionInput.focus();
+        });
+    </script>
+</body>
+</html>
+
